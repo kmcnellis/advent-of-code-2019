@@ -181,13 +181,15 @@ void runScreen(MutexQueue<int>& inputQueue, MutexQueue<int>& instructionQueue){
   printMap(screen);
   printStr(LINES-1, 0, ("max: "+to_string(LINES)+" "+to_string(COLS)));
   int count = 0;
+  int ballX = 0;
+  int paddleX = 0;
   while(true){
     // send camera signal
     // inputQueue.addMessage(screen[x][y]);
     // Wait for instruction
     int x = instructionQueue.retrieveMessage();
     // Check for halt
-    if (x == 99) {
+    if (x == 999) {
       int blocks = 0;
       for (int i = 0; i < SIZE; i++){
         for (int j = 0; j < SIZE; j++){
@@ -201,26 +203,42 @@ void runScreen(MutexQueue<int>& inputQueue, MutexQueue<int>& instructionQueue){
 
       return;
     }
-    int y = instructionQueue.retrieveMessage();
-    int id = instructionQueue.retrieveMessage();
+    else if (x == 901){ // check for input needed
 
-    if (x >= SIZE || x < -1 || y >= SIZE || y < -1 ){
-        endwin();
-        cout << "ERROR ("<< x<<" , "<<y<<")"<<endl;
-        return;
-    }
-    if (x == -1&& y == -1 ){
-      printStr(LINES-3, 0, ("score: "+to_string(id)));
+      if (ballX > paddleX) inputQueue.addMessage(1);
+      else if (ballX < paddleX) inputQueue.addMessage(-1);
+      else inputQueue.addMessage(0);
+
     }
     else{
-      screen[x][y] = id;
+      int y = instructionQueue.retrieveMessage();
+      int id = instructionQueue.retrieveMessage();
 
-      updateScreen(x, y, id);
-      refresh();
-      if (count > 945 ) std::this_thread::sleep_for(std::chrono::milliseconds(100)); // ignore first draw
-      else std::this_thread::sleep_for(std::chrono::milliseconds(1)); // ignore first draw
-      printStr(LINES-2, 0, ("count: "+to_string(count)));
-      count++;
+      if (id == 4){  //ball
+        ballX = x;
+      }
+      else if (id == 3){ //horizontal paddle
+        paddleX = x;
+      }
+      if (x >= SIZE || x < -1 || y >= SIZE || y < -1 ){
+          endwin();
+          cout << "ERROR ("<< x<<" , "<<y<<")"<<endl;
+          return;
+      }
+      if (x == -1 && y == 0 ){
+        printStr(LINES-4, 0, ("score: "+to_string(id)));
+      }
+      else{
+        screen[x][y] = id;
+
+        updateScreen(x, y, id);
+        refresh();
+        if (count > 945 ) std::this_thread::sleep_for(std::chrono::milliseconds(10)); // ignore first draw
+        else std::this_thread::sleep_for(std::chrono::milliseconds(1)); // ignore first draw
+        printStr(LINES-2, 0, ("count: "+to_string(count)));
+        count++;
+      }
+
     }
   }
 }
@@ -280,7 +298,7 @@ long runProgram(map<long,long> program, const long n, MutexQueue<int>& inQueue, 
     long instruction = program[i] % 100;
     if (instruction == 99) {
       // Tell robot to quit
-      outQueue.addMessage(99);
+      outQueue.addMessage(999);
 
       return program[0]; // end opcode
     }
@@ -324,28 +342,32 @@ long runProgram(map<long,long> program, const long n, MutexQueue<int>& inQueue, 
       // cin >> input;
 
       // Queue Input
-      // long input = inQueue.retrieveMessage();
+      // cout << "output:"<< param1 << endl;
+      // Ask for input
+      outQueue.addMessage(901);
+
+      long input = inQueue.retrieveMessage();
       // cout << "Entered: " << input <<endl;
 
       // Arrow Input
       // printStr(LINES-3, 0, "Input: ");
-      refresh();
-      char key = input();
-      int val = 0;
-      if (int(key) == KEY_LEFT || key == 'a'){
-        val = -1;
-        // printStr(LINES-3, 8, "Left  ");
-      }
-      else if (int(key) == KEY_RIGHT || key == 'd'){
-        val = 1;
-        // printStr(LINES-3, 8, "Right ");
-      }
-      else{
-        // printStr(LINES-3, 8, "None  ");
-      }
-        printCh(LINES-3, 15, key);
+      // refresh();
+      // char key = input();
+      // int val = 0;
+      // if (int(key) == KEY_LEFT || key == 'a'){
+      //   val = -1;
+      //   // printStr(LINES-3, 8, "Left  ");
+      // }
+      // else if (int(key) == KEY_RIGHT || key == 'd'){
+      //   val = 1;
+      //   // printStr(LINES-3, 8, "Right ");
+      // }
+      // else{
+      //   // printStr(LINES-3, 8, "None  ");
+      // }
+      //   printCh(LINES-3, 15, key);
 
-      insert(program, outputPos, val);
+      insert(program, outputPos, input);
 
       i += 2;
     }
